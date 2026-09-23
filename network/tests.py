@@ -1,3 +1,5 @@
+from django.contrib.auth.models import AbstractUser
+from django.urls import reverse
 
 from .models import User, Post, Comment
 from django.test import TestCase
@@ -68,12 +70,112 @@ class PostTest(TestCase):
 
         self.assertEqual(post.comments.count(), self.users_count)
 
+    def test_post_guest_cannot_create_comment(self):
+        post = Post.objects.create(
+            author = self.user_author,
+            title = 'title',
+            body = 'body'
+        )
 
-    # def test_post_guest_cannot_create_comment(self):
-    #     pass
-    #
-    # def test_post_guest_cannot_like(self):
-    #     pass
-    #
-    # def test_post_cannot_be_created_by_guest(self):
-    #     pass
+        before = post.comments.count()
+
+        response = self.client.post(
+            reverse("comment", args=(post.id, )),
+            {'body': 'comment'}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(before, post.comments.count())
+
+    def test_post_guest_cannot_like(self):
+        post = Post.objects.create(
+            author = self.user_author,
+            title = "title",
+            body = "body"
+        )
+
+        before = post.likes.count()
+
+        response = self.client.post(
+            reverse("like", args=(post.id, ))
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(before, post.likes.count())
+
+    def test_post_cannot_be_created_by_guest(self):
+        before = Post.objects.count()
+
+        response = self.client.post(
+            reverse("create_post"), {
+                'author': self.user_author,
+                'title': 'title',
+                'body': 'body'
+            }
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(before, Post.objects.count())
+
+    def test_post_like_and_unlike(self):
+        post = Post.objects.create(
+            author=self.user_author,
+            title="title",
+            body="body"
+        )
+
+        self.client.force_login(self.user_author)
+
+        self.client.post(
+            reverse(f"like", args=(post.id, ))
+        )
+
+        self.assertEqual(post.likes.count(), 1)
+
+        self.client.post(
+            reverse(f"like", args=(post.id,))
+        )
+
+        self.assertEqual(post.likes.count(), 0)
+
+    def test_post_create_post_successfully_by_authorized(self):
+        self.client.force_login(self.user_author)
+
+        response = self.client.post(
+            reverse(f"create_post"), {
+                'title': 'title',
+                'body': 'body',
+                'user': self.user_author,
+            }
+        )
+
+        json = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Post.objects.filter(pk=int(json["post_id"])).exists())
+
+    def test_post_create_comment_successfully_by_authorized(self):
+        self.client.force_login(self.user_author)
+
+        post = Post.objects.create(
+            title='title',
+            body='body',
+            author=self.user_author
+        )
+
+        response = self.client.post(
+            reverse(f"comment", args=(post.id,)), {
+                'body': 'body',
+            }
+        )
+
+        json = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Post.objects.filter(pk=post.id)
+                        .first()
+                        .comments
+                        .filter(pk=json["comment_id"])
+                        .exists())
+        self.assertTrue(Comment.objects.filter(pk=json["comment_id"]).exists())
+

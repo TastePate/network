@@ -1,10 +1,23 @@
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
+from django import forms
 from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import render
+from django.http.request import HttpRequest
+from django.http.response import JsonResponse
+from django.shortcuts import render, redirect
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
-from .models import User
+from .models import User, Comment, Post
+
+
+class CommentForm(forms.Form):
+    body = forms.CharField(max_length=2000)
+
+class PostForm(forms.Form):
+    title = forms.CharField(max_length=200)
+    body = forms.CharField(max_length=5000)
 
 
 def index(request):
@@ -61,3 +74,75 @@ def register(request):
         return HttpResponseRedirect(reverse("index"))
     else:
         return render(request, "network/register.html")
+
+@login_required(login_url="login")
+@require_POST
+def comment(request: HttpRequest, post_id):
+    form = CommentForm(request.POST)
+    post = Post.objects.filter(pk=post_id).first()
+    if not post:
+        return JsonResponse({
+            "error": f"Post with {post_id} don't exist!"
+        }, status=400)
+
+    if form.is_valid():
+        data = form.cleaned_data
+        comment = Comment.objects.create(
+            author=request.user,
+            body=data['body']
+        )
+        post.comments.add(comment)
+
+        return JsonResponse({
+            "comment_id": comment.id,
+            "author": request.user.username,
+            "body": data['body']
+        }, status=200)
+
+    return JsonResponse({
+        "error": form.errors
+    }, status=400)
+
+@login_required(login_url="login")
+@require_POST
+def like(request: HttpRequest, post_id):
+    user = request.user
+    post = Post.objects.filter(pk=post_id).first()
+    if not post:
+        return JsonResponse({
+            "error": f"Post with {post_id} don't exist!"
+        }, status=400)
+
+    liked = post.likes.contains(user)
+    if not liked:
+        post.likes.add(user)
+    else:
+        post.likes.remove(user)
+
+    liked = not liked
+    post.save()
+
+    return JsonResponse({
+        "liked": liked,
+        "likes": post.likes.count()
+    })
+
+@login_required(login_url="login")
+@require_POST
+def create_post(request: HttpRequest):
+    form = PostForm(request.POST)
+    if form.is_valid():
+        data = form.cleaned_data
+        post = Post.objects.create(
+            title=data['title'],
+            body=data['body'],
+            author=request.user
+        )
+
+        return JsonResponse({
+            "post_id": post.id
+        }, status=200)
+
+    return JsonResponse({
+        "error": form.errors
+    }, status=400)
