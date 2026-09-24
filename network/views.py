@@ -2,7 +2,7 @@ from math import ceil
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage
 from django.db import IntegrityError
 from django import forms
 from django.http import HttpResponse, HttpResponseRedirect
@@ -150,14 +150,20 @@ def create_post(request: HttpRequest):
         "error": form.errors
     }, status=400)
 
-@login_required(login_url="login")
 @require_GET
 def posts(request: HttpRequest, page):
     posts_by_page = 10
 
     queryset = Post.objects.order_by("-post_date")
     paginator = Paginator(queryset, posts_by_page)
-    page_obj = paginator.get_page(page)
+
+    try:
+        page_obj = paginator.page(page)
+    except EmptyPage:
+        return JsonResponse({
+            "error": f"There is no page with number {page}"
+        }, status=404)
+
 
     posts_json = []
 

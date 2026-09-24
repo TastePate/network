@@ -325,3 +325,30 @@ class AllPageTest(TestCase):
         self.assertEqual(json["has_next"], False)
         self.assertEqual(json["has_previous"], True)
 
+    def test_app_page_get_too_much_page_number(self):
+        Post.objects.create(
+            title="title",
+            body="body",
+            author=self.user,
+        )
+
+        response = self.client.get(
+            reverse("posts", kwargs={"page": "999"}),
+        )
+
+        json = response.json()
+        self.assertIsNotNone(json.get("error", None))
+        self.assertEqual(response.status_code, 404)
+
+    def test_app_page_get_correct_zero_page(self):
+        response = self.client.get(
+            reverse("posts", kwargs={"page": "1"})
+        )
+
+        json = response.json()
+        self.assertEqual(json["posts"], [])
+        self.assertEqual(json["page"], 1)
+        self.assertEqual(json["num_pages"], 1)
+        self.assertFalse(json["has_next"])
+        self.assertFalse(json["has_previous"])
+
