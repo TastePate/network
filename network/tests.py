@@ -1,5 +1,9 @@
-from django.contrib.auth.models import AbstractUser
+from datetime import timedelta
+from math import ceil
+from random import random, randint, shuffle
+
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import User, Post, Comment
 from django.test import TestCase
@@ -178,4 +182,116 @@ class PostTest(TestCase):
                         .filter(pk=json["comment_id"])
                         .exists())
         self.assertTrue(Comment.objects.filter(pk=json["comment_id"]).exists())
+
+class AllPageTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create(
+            username="user",
+            password="123"
+        )
+
+        self.client.force_login(self.user)
+
+    def test_all_page_available_for_authorized(self):
+        response = self.client.get(
+            reverse("index")
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_all_page_get_all_posts_from_all_users_less_ten(self):
+        users_count = 5
+
+        for i in range(users_count):
+            user = User.objects.create(
+                username=f"user_{i}",
+                password="123"
+            )
+
+            Post.objects.create(
+                title=f"{i}",
+                body=f"{i}",
+                author=user
+            )
+
+        response = self.client.get(
+            reverse("posts", kwargs={"page": "1"}),
+        )
+
+        json_posts = response.json()
+
+        self.assertEqual(len(json_posts), users_count)
+
+
+    def test_all_page_get_posts_from_newer_to_older(self):
+        posts_count = 35
+        timestamps = [
+            timezone.now() + timedelta(hours=delta)
+                for delta in range(posts_count // 2, -posts_count // 2, -1)
+        ]
+
+        shuffled = timestamps.copy()
+        shuffle(shuffled)
+
+        created_posts = []
+        for random_date in shuffled:
+            post = Post.objects.create(
+                title=f"{random_date}",
+                body=f"{random_date}",
+                author=self.user
+            )
+
+            Post.objects.filter(pk=post.id).update(
+                post_date=random_date
+            )
+
+            created_posts.append({
+                "id": post.id,
+                "post_date": random_date
+            })
+
+        created_posts.sort(
+            key=lambda x: x["post_date"],
+            reverse=True
+        )
+
+        expected_ids = [post["id"] for post in created_posts]
+
+        for page in range(1, ceil(posts_count / 10) + 1):
+            response = self.client.get(
+                reverse("posts", kwargs={"page": f"{page}"})
+
+            )
+
+            start = (page - 1) * 10
+            end = page * 10
+
+            expected_page_ids = expected_ids[start:end]
+            actual_page_ids = [post["id"] for post in response.json()]
+
+            self.assertEqual(expected_page_ids, actual_page_ids)
+
+    def test_all_page_pagination(self):
+        posts_count = 35
+
+        for i in range(posts_count):
+            Post.objects.create(
+                title=f"{i}",
+                body=f"{i}",
+                author=self.user
+            )
+
+        response = self.client.get(
+            reverse("posts", kwargs={"page": f"{1}"}),
+        )
+
+        self.assertEqual(len(response.json()), 10)
+
+        response = self.client.get(
+            reverse("posts", kwargs={"page": f"{4}"}),
+        )
+
+        self.assertEqual(len(response.json()), 5)
+
 

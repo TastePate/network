@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django import forms
 from django.http import HttpResponse, HttpResponseRedirect
@@ -7,7 +8,7 @@ from django.http.request import HttpRequest
 from django.http.response import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 
 from .models import User, Comment, Post
 
@@ -146,3 +147,25 @@ def create_post(request: HttpRequest):
     return JsonResponse({
         "error": form.errors
     }, status=400)
+
+@login_required(login_url="login")
+@require_GET
+def posts(request: HttpRequest, page):
+    queryset = Post.objects.order_by("-post_date")
+    paginator = Paginator(queryset, 10)
+    page_obj = paginator.get_page(page)
+
+    posts_json = []
+
+    for post in page_obj:
+        posts_json.append({
+            "id": post.id,
+            "title": post.title,
+            "body": post.body,
+            "author": post.author.username,
+            "post_date": post.post_date.isoformat(),
+            "likes": post.likes.count(),
+            "comments": post.comments.count(),
+        })
+
+    return JsonResponse(posts_json, safe=False)
