@@ -1,3 +1,5 @@
+from math import ceil
+
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -151,8 +153,10 @@ def create_post(request: HttpRequest):
 @login_required(login_url="login")
 @require_GET
 def posts(request: HttpRequest, page):
+    posts_by_page = 10
+
     queryset = Post.objects.order_by("-post_date")
-    paginator = Paginator(queryset, 10)
+    paginator = Paginator(queryset, posts_by_page)
     page_obj = paginator.get_page(page)
 
     posts_json = []
@@ -168,4 +172,11 @@ def posts(request: HttpRequest, page):
             "comments": post.comments.count(),
         })
 
-    return JsonResponse(posts_json, safe=False)
+    return JsonResponse({
+        "posts": posts_json,
+        "page": page_obj.number,
+        "posts_count": len(page_obj),
+        "num_pages": page_obj.paginator.num_pages,
+        "has_next": page_obj.has_next(),
+        "has_previous": page_obj.has_previous(),
+    })

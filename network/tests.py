@@ -1,4 +1,5 @@
 from datetime import timedelta
+from http.cookiejar import request_host
 from math import ceil
 from random import random, randint, shuffle
 
@@ -219,7 +220,7 @@ class AllPageTest(TestCase):
             reverse("posts", kwargs={"page": "1"}),
         )
 
-        json_posts = response.json()
+        json_posts = response.json()["posts"]
 
         self.assertEqual(len(json_posts), users_count)
 
@@ -261,14 +262,13 @@ class AllPageTest(TestCase):
         for page in range(1, ceil(posts_count / 10) + 1):
             response = self.client.get(
                 reverse("posts", kwargs={"page": f"{page}"})
-
             )
 
             start = (page - 1) * 10
             end = page * 10
 
             expected_page_ids = expected_ids[start:end]
-            actual_page_ids = [post["id"] for post in response.json()]
+            actual_page_ids = [post["id"] for post in response.json()["posts"]]
 
             self.assertEqual(expected_page_ids, actual_page_ids)
 
@@ -286,12 +286,42 @@ class AllPageTest(TestCase):
             reverse("posts", kwargs={"page": f"{1}"}),
         )
 
-        self.assertEqual(len(response.json()), 10)
+        self.assertEqual(len(response.json()["posts"]), 10)
 
         response = self.client.get(
             reverse("posts", kwargs={"page": f"{4}"}),
         )
 
-        self.assertEqual(len(response.json()), 5)
+        self.assertEqual(len(response.json()["posts"]), 5)
 
+    def test_all_page_addition_info_is_correct(self):
+        posts_count = 35
+
+        for i in range(posts_count):
+            Post.objects.create(
+                title=f"{i}",
+                body=f"{i}",
+                author=self.user
+            )
+
+        response = self.client.get(
+            reverse("posts", kwargs={"page": "1"})
+        )
+
+        json = response.json()
+        self.assertEqual(json["page"], 1)
+        self.assertEqual(json["posts_count"], 10)
+        self.assertEqual(json["num_pages"], 4)
+        self.assertEqual(json["has_next"], True)
+        self.assertEqual(json["has_previous"], False)
+
+        response = self.client.get(
+            reverse("posts", kwargs={"page": "4"})
+        )
+
+        json = response.json()
+        self.assertEqual(json["page"], 4)
+        self.assertEqual(json["posts_count"], 5)
+        self.assertEqual(json["has_next"], False)
+        self.assertEqual(json["has_previous"], True)
 
