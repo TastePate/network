@@ -1,7 +1,20 @@
+const View = Object.freeze({
+    ALL_POSTS: "all_posts",
+    FOLLOWING: "following",
+    PROFILE: "profile"
+})
+
 function App() {
+    const [view, setView] = React.useState(View.ALL_POSTS);
+
+    let show;
+    if (view === View.ALL_POSTS) {
+        show = <Posts />
+    } else {
+    }
     return (
         <div className="main">
-            <Posts />
+            {show}
         </div>
     );
 }
@@ -17,39 +30,37 @@ function Posts() {
         error: ""
     });
 
-    function setPage(new_page) {
-        setPageState({
-            ...pageState,
-            page: new_page,
-        });
+    async function openPage(page) {
+        const response = await fetch(`posts/${page}`);
+        const json = await response.json();
+
+        if (Object.hasOwn(json, "error")) {
+            setPageState({
+                ...pageState,
+                error: json["error"],
+            })
+        } else {
+            setPageState({
+                ...pageState,
+                posts: json["posts"],
+                page: json["page"],
+                num_pages: json["num_pages"],
+                has_next: json["has_next"],
+                has_previous: json["has_previous"]
+            })
+        }
     }
 
     React.useEffect(() => {
-       fetch(`posts/${pageState["page"]}`)
-           .then(response => response.json())
-           .then(json => {
-                if (Object.hasOwn(json, "error")) {
-                    console.log(json["error"]);
-                    setPageState({
-                        ...pageState,
-                        error: json["error"],
-                    })
-                } else {
-                    console.log(json);
-                    setPageState({
-                        ...pageState,
-                        posts: json["posts"],
-                        page: json["page"],
-                        num_pages: json["num_pages"],
-                        has_next: json["has_next"],
-                        has_previous: json["has_previous"]
-                    })
-                }
-        });
+        openPage(pageState["page"])
     }, [pageState.page]);
+
+    const root = document.querySelector('.body');
+    const isAuthenticated = root.dataset.authenticated === "true";
 
     return (
         <div className="posts-container">
+            {isAuthenticated ? <CreateNewPost page_changer={openPage}/> : null}
             <div className="posts">
                 {pageState["posts"].map(post => (
                          <Post key={post.id.toString()} post={post}/>
@@ -57,7 +68,7 @@ function Posts() {
                 )}
             </div>
             <PostsNavigation num_pages={pageState["num_pages"]}
-                             page_changer={setPage}
+                             page_changer={openPage}
                              current_page={pageState["page"]}/>
         </div>
     );
@@ -132,4 +143,45 @@ function Likes(props) {
     );
 }
 
-ReactDOM.render(<App />, document.querySelector('.body'));
+function CreateNewPost(props) {
+    async function submit(event) {
+        const csrftoken = Cookies.get('csrftoken');
+        const form = event.currentTarget;
+
+        event.preventDefault();
+
+        const response = await fetch(
+            '/create_post', {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrftoken
+                },
+                body: new FormData(form)
+            }
+        );
+        const json = await response.json();
+
+        if (response.ok) {
+            console.log(json);
+            alert("Post has been created successfully!");
+            form.reset();
+        props.page_changer(1);
+
+        } else {
+            console.log(json);
+            alert(json["error"]);
+        }
+    }
+
+    return (
+        <div className="create-post-form">
+            <form action="create_post" method="post" onSubmit={submit}>
+                <input name="title" type="text"/>
+                <textarea name="body" placeholder="What are you thinking about right now?"></textarea>
+                <input type="submit"/>
+            </form>
+        </div>
+    );
+}
+
+ReactDOM.render(<App/>, document.querySelector('.body'));
