@@ -1,6 +1,7 @@
 from math import ceil
 
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator, EmptyPage
 from django.db import IntegrityError
@@ -10,6 +11,7 @@ from django.http.request import HttpRequest
 from django.http.response import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST, require_GET
 
 from .models import User, Comment, Post
@@ -23,6 +25,7 @@ class PostForm(forms.Form):
     body = forms.CharField(max_length=5000)
 
 
+@ensure_csrf_cookie
 def index(request):
     return render(request, "network/index.html")
 
@@ -106,9 +109,13 @@ def comment(request: HttpRequest, post_id):
         "error": form.errors
     }, status=400)
 
-@login_required(login_url="login")
 @require_POST
 def like(request: HttpRequest, post_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({
+            "error": "Log in to Like this post",
+        }, status=401)
+
     user = request.user
     post = Post.objects.filter(pk=post_id).first()
     if not post:
