@@ -105,7 +105,7 @@ class PostTest(TestCase):
             reverse("like", args=(post.id, ))
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 401)
         self.assertEqual(before, post.likes.count())
 
     def test_post_cannot_be_created_by_guest(self):
