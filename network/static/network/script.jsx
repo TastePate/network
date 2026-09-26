@@ -53,7 +53,7 @@ function Posts() {
 
     React.useEffect(() => {
         openPage(pageState["page"])
-    }, [pageState.page]);
+    }, []);
 
     const root = document.querySelector('.body');
     const isAuthenticated = root.dataset.authenticated === "true";
@@ -63,7 +63,11 @@ function Posts() {
             {isAuthenticated ? <CreateNewPost page_changer={openPage}/> : null}
             <div className="posts">
                 {pageState["posts"].map(post => (
-                         <Post key={post.id.toString()} post={post}/>
+                         <Post key={post.id.toString()}
+                               post={post}
+                               page={pageState["page"]}
+                               page_changer={openPage}
+                         />
                     )
                 )}
             </div>
@@ -98,15 +102,32 @@ function PostsNavigation(props) {
 }
 
 function Post(props) {
-    return (
-        <div className="post">
-            <span>{props.post.author}</span>
-            <span>{props.post.title}</span>
-            <span>{props.post.body}</span>
-            <span>{props.post.post_date}</span>
-            <Likes post={props.post}/>
-        </div>
-    );
+    const [view, setView] = React.useState("post");
+
+    function renderView() {
+        if (view === "edit") {
+            return (
+                <div className="post">
+                    <EditPost post={props.post}
+                              back={() => setView("post")}
+                              reset_page={() => props.page_changer(props.page)}/>
+                    <a href="#" onClick={() => setView("post")}>Back</a>
+                </div>
+            );
+        } else if (view === "post") {
+            return (
+                <div className="post">
+                    <span>{props.post.author}</span>
+                    <span>{props.post.title}</span>
+                    <span>{props.post.body}</span>
+                    <span>{props.post.post_date}</span>
+                    <Likes post={props.post}/>
+                    {props.post.can_edit ? <a href="#" onClick={() => setView("edit")}>Edit</a> : null}
+                </div>)
+        }
+    }
+
+    return renderView();
 }
 
 function Likes(props) {
@@ -162,13 +183,10 @@ function CreateNewPost(props) {
         const json = await response.json();
 
         if (response.ok) {
-            console.log(json);
             alert("Post has been created successfully!");
             form.reset();
-        props.page_changer(1);
-
+            props.page_changer(1);
         } else {
-            console.log(json);
             alert(json["error"]);
         }
     }
@@ -179,6 +197,48 @@ function CreateNewPost(props) {
                 <input name="title" type="text"/>
                 <textarea name="body" placeholder="What are you thinking about right now?"></textarea>
                 <input type="submit"/>
+            </form>
+        </div>
+    );
+}
+
+function EditPost(props) {
+    async function submit(event) {
+        const csrftoken = Cookies.get('csrftoken');
+        const form = event.currentTarget;
+        const formData = new FormData(form);
+
+        event.preventDefault();
+
+        const response = await fetch(
+            `/edit_post/${props.post.id}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrftoken
+                },
+                body: JSON.stringify({
+                    title: formData.get("title"),
+                    body: formData.get("body")
+                })
+            }
+        );
+        const json = await response.json();
+
+        if (response.ok) {
+            props.back();
+            props.reset_page();
+        } else {
+            alert(json["error"]);
+        }
+    }
+
+    return (
+        <div className="edit-post-form">
+            <form action="edit_post" method="patch" onSubmit={submit}>
+                <input name="title" type="text" defaultValue={props.post.title}/>
+                <textarea name="body" defaultValue={props.post.body}></textarea>
+                <input type="submit" value="Save" />
             </form>
         </div>
     );

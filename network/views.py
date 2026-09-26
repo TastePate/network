@@ -1,4 +1,8 @@
+import json
+from json import JSONDecodeError
+
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator, EmptyPage
 from django.db import IntegrityError
@@ -9,7 +13,7 @@ from django.http.response import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_POST, require_GET, require_http_methods
 
 from .models import User, Comment, Post
 
@@ -180,6 +184,7 @@ def posts(request: HttpRequest, page):
             "post_date": post.post_date.isoformat(),
             "likes": post.likes.count(),
             "comments": post.comments.count(),
+            "can_edit": request.user.id == post.author_id and request.user.is_authenticated
         })
 
     return JsonResponse({
@@ -190,3 +195,41 @@ def posts(request: HttpRequest, page):
         "has_next": page_obj.has_next(),
         "has_previous": page_obj.has_previous(),
     })
+
+
+@require_http_methods(["PATCH"])
+def edit_post(request: HttpRequest, post_id):
+    try:
+        data = json.loads(request.body)
+        if not isinstance(data, dict):
+            raise TypeError()
+    except JSONDecodeError, TypeError:
+        return JsonResponse({
+            "error": f"Invalid input json"
+        }, status=400)
+
+    user = request.user
+    post = Post.objects.filter(pk=post_id).first()
+    if not post:
+        return JsonResponse({
+            "error": f"There is no post with id {post_id}"
+        }, status=404)
+
+    if (not all(key in ("title", "body") and value.strip() for key, value in data.items())
+            or not user.is_authenticated
+            or user.id != post.author_id):
+        return JsonResponse({
+            "error": "You cannot edit this!"
+        }, status=403)
+
+    Post.objects.filter(pk=post_id).update(**data)
+    post = Post.objects.filter(pk=post_id).first()
+    return JsonResponse({
+        "id": post.id,
+        "title": post.title,
+        "body": post.body,
+        "author": post.author.username,
+        "post_date": post.post_date.isoformat(),
+        "likes": post.likes.count(),
+        "comments": post.comments.count(),
+    }, status=200)

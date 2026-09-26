@@ -352,3 +352,99 @@ class AllPageTest(TestCase):
         self.assertFalse(json["has_next"])
         self.assertFalse(json["has_previous"])
 
+    def test_app_page_edit_own_post(self):
+        post = Post.objects.create(
+            title="title",
+            body="body",
+            author=self.user
+        )
+
+        response = self.client.patch(
+            reverse("edit_post", kwargs={"post_id": post.id}),
+            content_type="application/json",
+            data={
+                "title": "new_title",
+                "body": "new_body"
+            })
+
+        new_post = Post.objects.filter(pk=post.id).first()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(new_post.title, "new_title")
+        self.assertEqual(new_post.body, "new_body")
+
+    def test_app_page_cannot_edit_other_user(self):
+        post = Post.objects.create(
+            title="title",
+            body="body",
+            author=self.user
+        )
+
+        other_user = User.objects.create(
+            username="new_user",
+            password="123"
+        )
+
+        self.client.force_login(other_user)
+
+        response = self.client.patch(
+            reverse("edit_post", kwargs={"post_id": post.id}),
+            content_type="application/json",
+            data={
+                "title": "new_title",
+                "body": "new_body"
+            })
+
+        old_post = Post.objects.filter(pk=post.id).first()
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(old_post.title, "title")
+        self.assertEqual(old_post.body, "body")
+
+    def test_app_page_cannot_change_author(self):
+        post = Post.objects.create(
+            title="title",
+            body="body",
+            author=self.user
+        )
+
+        other_user = User.objects.create(
+            username="new_user",
+            password="123"
+        )
+
+        response = self.client.patch(
+            reverse("edit_post", kwargs={"post_id": post.id}),
+            content_type="application/json",
+            data={
+                "author": other_user.id
+            })
+
+        old_post = Post.objects.filter(pk=post.id).first()
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(old_post.author, self.user)
+
+    def test_app_page_guest_cannot_change_post(self):
+        post = Post.objects.create(
+            title="title",
+            body="body",
+            author=self.user
+        )
+
+        self.client.logout()
+
+        response = self.client.patch(
+            reverse("edit_post", kwargs={"post_id": post.id}),
+            content_type="application/json",
+            data={
+                "post_id": post.id,
+                "title": "new_title",
+                "body": "new_body"
+            })
+
+        old_post = Post.objects.filter(pk=post.id).first()
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(old_post.title, "title")
+        self.assertEqual(old_post.body, "body")
