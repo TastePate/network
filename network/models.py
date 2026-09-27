@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models import CASCADE
+from django.db.models.constraints import UniqueConstraint
 
 
 class User(AbstractUser):
@@ -21,3 +22,11 @@ class Comment(models.Model):
     body = models.CharField(max_length=2000)
     comment_date = models.DateTimeField(auto_now_add=True)
 
+
+class Subscription(models.Model):
+    origin = models.ForeignKey(User, on_delete=CASCADE, related_name="my_followers")
+    follower = models.ForeignKey(User, on_delete=CASCADE, related_name="my_subscriptions")
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["origin", "follower"], name="unique_subscription")
+        ]

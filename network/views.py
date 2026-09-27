@@ -1,4 +1,5 @@
 import json
+from functools import wraps
 from json import JSONDecodeError
 
 from django.contrib.auth import authenticate, login, logout
@@ -15,7 +16,7 @@ from django.urls import reverse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST, require_GET, require_http_methods
 
-from .models import User, Comment, Post
+from .models import User, Comment, Post, Subscription
 
 
 class CommentForm(forms.Form):
@@ -233,3 +234,61 @@ def edit_post(request: HttpRequest, post_id):
         "likes": post.likes.count(),
         "comments": post.comments.count(),
     }, status=200)
+
+def user_exists(view):
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if User.objects.filter(pk=kwargs["influencer_id"]).exists():
+            return view(request, *args, **kwargs)
+        else:
+            return JsonResponse({
+                "error": "User doesn't exist"
+            }, status=404)
+    return wrapper
+
+@user_exists
+@require_POST
+def subscribe(request: HttpRequest, influencer_id):
+    user = request.user
+    if not user.is_authenticated:
+        return JsonResponse({
+            "error": "You have to authorize to follow profile!"
+        }, status=403)
+
+    if user.id == influencer_id:
+        return JsonResponse({
+            "error": "You can't follow yourself!"
+        }, status=400)
+
+    if not Subscription.objects.filter(origin=influencer_id, follower=user.id).exists():
+        sub = Subscription.objects.create(
+            origin_id=influencer_id,
+            follower_id=user.id
+        )
+        return JsonResponse({
+            "origin": sub.origin.id,
+            "subscriber": sub.follower.id,
+        }, status=200)
+    else:
+        return JsonResponse({
+            "error": "You already subscribed on this user!"
+        }, status=400)
+
+
+@user_exists
+@require_http_methods(["DELETE"])
+def unsubscribe(request: HttpRequest, influencer_id):
+    user = request.user
+    if not user.is_authenticated:
+        return JsonResponse({
+            "error": "You don't have permission to do that"
+        }, status=403)
+
+    sub_filter = Subscription.objects.filter(origin_id=influencer_id, follower_id=user.id)
+    if not sub_filter.exists():
+        return JsonResponse({
+            "error": "You didn't subscribe to this profile"
+        }, status=400)
+    else:
+        sub_filter.delete()
+        return JsonResponse({}, status=200)

@@ -3,10 +3,11 @@ from http.cookiejar import request_host
 from math import ceil
 from random import random, randint, shuffle
 
+from django.db.utils import IntegrityError
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import User, Post, Comment
+from .models import User, Post, Comment, Subscription
 from django.test import TestCase
 
 class PostTest(TestCase):
@@ -448,3 +449,69 @@ class AllPageTest(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(old_post.title, "title")
         self.assertEqual(old_post.body, "body")
+
+class ProfilesTest(TestCase):
+
+    def test_subscription_to_one_profile(self):
+        followers_count = 5
+
+        influencer = User.objects.create(
+            username="great_blogger_1",
+            password="123"
+        )
+        for i in range(followers_count):
+            subscriber = User.objects.create(
+                username=f"bot_{i}",
+                password=123
+            )
+            Subscription.objects.create(
+                origin=influencer,
+                follower=subscriber
+            )
+            self.assertEqual(subscriber.my_subscriptions.count(), 1)
+
+        self.assertEqual(influencer.my_followers.count(), 5)
+
+    def test_cannot_subscribe_twice_orm_test(self):
+        user1 = User.objects.create(
+            username=f"1",
+            password=123
+        )
+        user2 = User.objects.create(
+            username=f"2",
+            password=123
+        )
+        Subscription.objects.create(
+            origin=user1,
+            follower=user2
+        )
+
+        self.assertRaises(IntegrityError,
+                          Subscription.objects.create,
+                          origin=user1,
+                          follower=user2)
+
+    def test_subscribe_unsubscribe_view_works_correct(self):
+        influencer = User.objects.create(
+            username="1",
+            password=123
+        )
+        user = User.objects.create(
+            username="2",
+            password=123
+        )
+
+        self.client.force_login(user)
+        response = self.client.post(reverse("subscribe",
+                                 kwargs={"influencer_id": influencer.id}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(influencer.my_followers.count(), 1)
+        self.assertEqual(user.my_subscriptions.count(), 1)
+
+        self.client.delete(reverse("unsubscribe",
+                               kwargs={"influencer_id": influencer.id}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(influencer.my_followers.count(), 0)
+        self.assertEqual(user.my_subscriptions.count(), 0)
