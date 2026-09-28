@@ -14,5 +14,6 @@ urlpatterns = [
     path("posts/<int:page>", views.posts, name="posts"),
     path("edit_post/<int:post_id>", views.edit_post, name="edit_post"),
     path("subscribe/<int:influencer_id>", views.subscribe, name="subscribe"),
-    path("unsubscribe/<int:influencer_id>", views.unsubscribe, name="unsubscribe")
+    path("unsubscribe/<int:influencer_id>", views.unsubscribe, name="unsubscribe"),
+    path("profile/<int:user_id>", views.profile, name="profile")
 ]

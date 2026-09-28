@@ -1,21 +1,70 @@
 const View = Object.freeze({
-    ALL_POSTS: "all_posts",
-    FOLLOWING: "following",
-    PROFILE: "profile"
+    POSTS: "all_posts",
+    PROFILE: "profile",
+    FOLLOWING: "following"
 })
 
 function App() {
-    const [view, setView] = React.useState(View.ALL_POSTS);
+    const [view, setView] = React.useState(View.POSTS);
 
-    let show;
-    if (view === View.ALL_POSTS) {
-        show = <Posts />
-    } else {
+    let display;
+    switch (view) {
+        case View.POSTS:
+            display = <Posts />
+            break;
+        case View.PROFILE:
+            display = <Profile />
+            break;
+        case View.FOLLOWING:
+            display = <Profile />
+            break;
     }
+
     return (
         <div className="main">
-            {show}
+            <NavBar setView={setView}/>
+            {display}
         </div>
+    );
+}
+
+function NavBar(props) {
+    return (
+        <nav className="navbar navbar-expand-lg navbar-light bg-light">
+            <a className="navbar-brand" href="#">Network</a>
+          
+            <div>
+              <ul className="navbar-nav mr-auto">
+                  {authenticated ?
+                    <li className="nav-item">
+                        <a className="nav-link" href="#" onClick={() => props.setView(View.PROFILE)}><strong>{ username }</strong></a>
+                    </li> : null
+                  }
+                    <li className="nav-item">
+                      <a className="nav-link" href="#" onClick={() => props.setView(View.POSTS)}>All Posts</a>
+                    </li>
+                {authenticated ?
+                    <React.Fragment>
+                        <li className="nav-item">
+                            <a className="nav-link" href="#" onClick={() => props.setView(View.FOLLOWING)}>Following</a>
+                        </li>
+                        <li className="nav-item">
+                            <a className="nav-link" href="/logout">Log Out</a>
+                        </li>
+                    </React.Fragment>
+                    :
+                    <React.Fragment>
+                        <li className="nav-item">
+                            <a className="nav-link" href="/login">Log In</a>
+                        </li>
+                        <li className="nav-item">
+                            <a className="nav-link" href="/register">Register</a>
+                        </li>
+                    </React.Fragment>
+                }
+              </ul>
+            </div>
+          </nav>
     );
 }
 
@@ -244,4 +293,33 @@ function EditPost(props) {
     );
 }
 
-ReactDOM.render(<App/>, document.querySelector('.body'));
+function Profile(props) {
+    const [profile, setProfile] = React.useState({
+        username: "",
+        followers: "",
+        subscriptions: ""
+    });
+
+    const response = fetch(`/profile/${user_id}`)
+        .then(response => response.json())
+        .then(json => {
+            setProfile({
+                username: json["username"],
+                followers: json["followers"],
+                subscriptions: json["subscriptions"]
+            });
+        });
+    return (
+        <div className="profile">
+            <span className="username">{profile["username"]}</span>
+            <span className="sub-info">Followers: {profile["followers"]}</span>
+            <span className="sub-info">Subscriptions: {profile["subscriptions"]}</span>
+        </div>
+    );
+}
+
+const root = document.querySelector(".body");
+const authenticated = root.dataset.authenticated === "true";
+const user_id = root.dataset.authenticatedUserId;
+const username = root.dataset.username;
+ReactDOM.render(<App />, root);

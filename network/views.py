@@ -2,16 +2,15 @@ import json
 from functools import wraps
 from json import JSONDecodeError
 
+from django import forms
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator, EmptyPage
 from django.db import IntegrityError
-from django import forms
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponseRedirect
 from django.http.request import HttpRequest
 from django.http.response import JsonResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST, require_GET, require_http_methods
@@ -26,6 +25,18 @@ class PostForm(forms.Form):
     title = forms.CharField(max_length=200)
     body = forms.CharField(max_length=5000)
 
+def user_exists(user_id_name):
+    def func_decorator(view):
+        @wraps(view)
+        def wrapper(request, *args, **kwargs):
+            if User.objects.filter(pk=kwargs[user_id_name]).exists():
+                return view(request, *args, **kwargs)
+            else:
+                return JsonResponse({
+                    "error": "User doesn't exist"
+                }, status=404)
+        return wrapper
+    return func_decorator
 
 @ensure_csrf_cookie
 def index(request):
@@ -235,18 +246,8 @@ def edit_post(request: HttpRequest, post_id):
         "comments": post.comments.count(),
     }, status=200)
 
-def user_exists(view):
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if User.objects.filter(pk=kwargs["influencer_id"]).exists():
-            return view(request, *args, **kwargs)
-        else:
-            return JsonResponse({
-                "error": "User doesn't exist"
-            }, status=404)
-    return wrapper
 
-@user_exists
+@user_exists("influencer_id")
 @require_POST
 def subscribe(request: HttpRequest, influencer_id):
     user = request.user
@@ -275,7 +276,7 @@ def subscribe(request: HttpRequest, influencer_id):
         }, status=400)
 
 
-@user_exists
+@user_exists("influencer_id")
 @require_http_methods(["DELETE"])
 def unsubscribe(request: HttpRequest, influencer_id):
     user = request.user
@@ -292,3 +293,14 @@ def unsubscribe(request: HttpRequest, influencer_id):
     else:
         sub_filter.delete()
         return JsonResponse({}, status=200)
+
+
+@user_exists("user_id")
+@require_GET
+def profile(request: HttpRequest, user_id):
+    user = User.objects.filter(pk=user_id).first()
+    return JsonResponse({
+        "username": user.username,
+        "subscriptions": user.my_subscriptions.count(),
+        "followers": user.my_followers.count(),
+    }, status=200)

@@ -509,7 +509,7 @@ class ProfilesTest(TestCase):
         self.assertEqual(influencer.my_followers.count(), 1)
         self.assertEqual(user.my_subscriptions.count(), 1)
 
-        self.client.delete(reverse("unsubscribe",
+        response = self.client.delete(reverse("unsubscribe",
                                kwargs={"influencer_id": influencer.id}))
 
         self.assertEqual(response.status_code, 200)
