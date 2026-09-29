@@ -175,6 +175,8 @@ def posts(request: HttpRequest, page):
     posts_by_page = 10
 
     queryset = Post.objects.order_by("-post_date")
+    if author_id := request.GET.get("author_id"):
+        queryset = queryset.filter(author_id=author_id)
     paginator = Paginator(queryset, posts_by_page)
 
     try:
@@ -193,6 +195,7 @@ def posts(request: HttpRequest, page):
             "title": post.title,
             "body": post.body,
             "author": post.author.username,
+            "author_id": post.author.id,
             "post_date": post.post_date.isoformat(),
             "likes": post.likes.count(),
             "comments": post.comments.count(),
@@ -247,6 +250,16 @@ def edit_post(request: HttpRequest, post_id):
     }, status=200)
 
 
+def get_json_profile_info(request: HttpRequest, user):
+    return JsonResponse({
+        "username": user.username,
+        "subscriptions": user.my_subscriptions.count(),
+        "followers": user.my_followers.count(),
+        "my_profile": user.id == request.user.id,
+        "is_following": Subscription.objects.filter(origin_id=user.id,
+                                                    follower_id=request.user.id).exists()
+    }, status=200)
+
 @user_exists("influencer_id")
 @require_POST
 def subscribe(request: HttpRequest, influencer_id):
@@ -266,10 +279,7 @@ def subscribe(request: HttpRequest, influencer_id):
             origin_id=influencer_id,
             follower_id=user.id
         )
-        return JsonResponse({
-            "origin": sub.origin.id,
-            "subscriber": sub.follower.id,
-        }, status=200)
+        return get_json_profile_info(request, User.objects.filter(pk=influencer_id).first())
     else:
         return JsonResponse({
             "error": "You already subscribed on this user!"
@@ -292,15 +302,11 @@ def unsubscribe(request: HttpRequest, influencer_id):
         }, status=400)
     else:
         sub_filter.delete()
-        return JsonResponse({}, status=200)
+        return get_json_profile_info(request, User.objects.filter(pk=influencer_id).first())
 
 
 @user_exists("user_id")
 @require_GET
 def profile(request: HttpRequest, user_id):
     user = User.objects.filter(pk=user_id).first()
-    return JsonResponse({
-        "username": user.username,
-        "subscriptions": user.my_subscriptions.count(),
-        "followers": user.my_followers.count(),
-    }, status=200)
+    return get_json_profile_info(request, user)

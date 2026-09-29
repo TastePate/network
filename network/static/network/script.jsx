@@ -6,14 +6,15 @@ const View = Object.freeze({
 
 function App() {
     const [view, setView] = React.useState(View.POSTS);
+    const [profileUserId, setProfileUserId] = React.useState(user_id)
 
     let display;
     switch (view) {
         case View.POSTS:
-            display = <Posts />
+            display = <Posts setView={setView} setProfileUserId={setProfileUserId} showCreateForm={true}/>
             break;
         case View.PROFILE:
-            display = <Profile />
+            display = <Profile userId={profileUserId} setView={setView} setProfileUserId={setProfileUserId}/>
             break;
         case View.FOLLOWING:
             display = <Profile />
@@ -22,7 +23,7 @@ function App() {
 
     return (
         <div className="main">
-            <NavBar setView={setView}/>
+            <NavBar setView={setView} setProfileUserId={setProfileUserId}/>
             {display}
         </div>
     );
@@ -37,7 +38,10 @@ function NavBar(props) {
               <ul className="navbar-nav mr-auto">
                   {authenticated ?
                     <li className="nav-item">
-                        <a className="nav-link" href="#" onClick={() => props.setView(View.PROFILE)}><strong>{ username }</strong></a>
+                        <a className="nav-link" href="#" onClick={() => {
+                            props.setView(View.PROFILE);
+                            props.setProfileUserId(user_id)
+                        }}><strong>{ username }</strong></a>
                     </li> : null
                   }
                     <li className="nav-item">
@@ -68,7 +72,7 @@ function NavBar(props) {
     );
 }
 
-function Posts() {
+function Posts(props) {
     const [pageState, setPageState] = React.useState({
         posts: [],
         page: 1,
@@ -80,7 +84,9 @@ function Posts() {
     });
 
     async function openPage(page) {
-        const response = await fetch(`posts/${page}`);
+        const response = Object.hasOwn(props, "author_id")
+            ? await fetch(`posts/${page}?author_id=${props.author_id}`)
+            : await fetch(`posts/${page}`);
         const json = await response.json();
 
         if (Object.hasOwn(json, "error")) {
@@ -101,21 +107,24 @@ function Posts() {
     }
 
     React.useEffect(() => {
-        openPage(pageState["page"])
-    }, []);
+        openPage(1)
+    }, [props.author_id]);
 
     const root = document.querySelector('.body');
     const isAuthenticated = root.dataset.authenticated === "true";
 
     return (
         <div className="posts-container">
-            {isAuthenticated ? <CreateNewPost page_changer={openPage}/> : null}
+            {isAuthenticated && props.showCreateForm ? <CreateNewPost page_changer={openPage}/> : null}
             <div className="posts">
-                {pageState["posts"].map(post => (
+                {pageState["posts"]
+                    .map(post => (
                          <Post key={post.id.toString()}
                                post={post}
                                page={pageState["page"]}
                                page_changer={openPage}
+                               setProfileUserId={props.setProfileUserId}
+                               setView={props.setView}
                          />
                     )
                 )}
@@ -166,7 +175,14 @@ function Post(props) {
         } else if (view === "post") {
             return (
                 <div className="post">
-                    <span>{props.post.author}</span>
+                    <span>
+                        <a href="#" onClick={() => {
+                            props.setProfileUserId(props.post.author_id);
+                            props.setView(View.PROFILE);
+                        }}>
+                            {props.post.author}
+                        </a>
+                    </span>
                     <span>{props.post.title}</span>
                     <span>{props.post.body}</span>
                     <span>{props.post.post_date}</span>
@@ -297,23 +313,60 @@ function Profile(props) {
     const [profile, setProfile] = React.useState({
         username: "",
         followers: "",
-        subscriptions: ""
+        subscriptions: "",
+        my_profile: false,
+        is_following: false,
     });
 
-    const response = fetch(`/profile/${user_id}`)
-        .then(response => response.json())
-        .then(json => {
-            setProfile({
-                username: json["username"],
-                followers: json["followers"],
-                subscriptions: json["subscriptions"]
+    React.useEffect(() => {
+        fetch(`/profile/${props.userId}`)
+            .then(response => response.json())
+            .then(json => {
+                setProfile({
+                    username: json["username"],
+                    followers: json["followers"],
+                    subscriptions: json["subscriptions"],
+                    my_profile: json["my_profile"],
+                    is_following: json["is_following"],
+                });
             });
-        });
+    }, [props.userId]);
+
+    function updateSubscription() {
+        const csrftoken = Cookies.get('csrftoken');
+
+        const path = profile["is_following"] ? "unsubscribe" : "subscribe";
+        const method = profile["is_following"] ? "DELETE" : "POST";
+        fetch(`/${path}/${props.userId}`, {
+            method: method,
+            headers: {
+                "X-CSRFToken": csrftoken
+            }
+        })
+            .then(response => response.json())
+            .then(json => {
+                setProfile(json);
+            });
+    }
+
     return (
         <div className="profile">
+            {
+                !profile["my_profile"]
+                    ?
+                        profile["is_following"]
+                            ? <button onClick={updateSubscription}>Unsubscribe</button>
+                            : <button onClick={updateSubscription}>Subscribe</button>
+
+                    : null
+            }
             <span className="username">{profile["username"]}</span>
             <span className="sub-info">Followers: {profile["followers"]}</span>
             <span className="sub-info">Subscriptions: {profile["subscriptions"]}</span>
+            <Posts author_id={props.userId}
+                   showCreateForm={false}
+                   setView={props.setView}
+                   setProfileUserId={props.setProfileUserId}/>
         </div>
     );
 }

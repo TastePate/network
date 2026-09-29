@@ -185,6 +185,26 @@ class PostTest(TestCase):
                         .exists())
         self.assertTrue(Comment.objects.filter(pk=json["comment_id"]).exists())
 
+    def test_get_test_with_particular_author(self):
+        posts_count = 3
+        for user in self.users:
+            for post in range(posts_count):
+                Post.objects.create(
+                    title="title",
+                    body="body",
+                    author=user,
+                )
+            self.assertEqual(user.posts.count(), posts_count)
+
+            response = self.client.get(
+                reverse("posts", kwargs={"page": 1}),
+                data={"author_id": user.id})
+            json = response.json()
+            posts = json["posts"]
+
+            self.assertEqual(len(posts), posts_count)
+            self.assertTrue(all(post["author_id"] == user.id for post in posts))
+
 class AllPageTest(TestCase):
 
     def setUp(self):
