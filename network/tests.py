@@ -198,7 +198,10 @@ class PostTest(TestCase):
 
             response = self.client.get(
                 reverse("posts", kwargs={"page": 1}),
-                data={"author_id": user.id})
+                data={
+                    "feed": "author",
+                    "author_id": user.id
+                })
             json = response.json()
             posts = json["posts"]
 

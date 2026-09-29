@@ -1,9 +1,11 @@
 import json
+from enum import Enum
 from functools import wraps
 from json import JSONDecodeError
 
 from django import forms
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator, EmptyPage
 from django.db import IntegrityError
@@ -170,13 +172,41 @@ def create_post(request: HttpRequest):
         "error": form.errors
     }, status=400)
 
+
 @require_GET
 def posts(request: HttpRequest, page):
     posts_by_page = 10
 
     queryset = Post.objects.order_by("-post_date")
-    if author_id := request.GET.get("author_id"):
-        queryset = queryset.filter(author_id=author_id)
+
+    feed_mode = request.GET.get("feed")
+    if feed_mode == "following" and not request.user.is_authenticated:
+        return JsonResponse({
+            "error": "You have to be authorized to watch your subscriptions' posts!"
+        }, status=401)
+
+    match feed_mode:
+        case "following":
+            subscriptions_raw = request.user.my_subscriptions.all()
+            subscriptions = list(map(lambda sub: sub.origin, subscriptions_raw))
+            queryset = queryset.filter(author_id__in=subscriptions)
+        case "author":
+            author_id = request.GET.get("author_id")
+            if not author_id:
+                return JsonResponse({
+                    "error": "No author_id was not passed"
+                }, status=400)
+
+            if not User.objects.filter(pk=author_id).exists():
+                return JsonResponse({
+                    "error": f"No author with id {author_id}"
+                }, status=400)
+
+            queryset = queryset.filter(author_id=author_id)
+        case "all" | None:
+            pass
+
+
     paginator = Paginator(queryset, posts_by_page)
 
     try:
@@ -185,7 +215,6 @@ def posts(request: HttpRequest, page):
         return JsonResponse({
             "error": f"There is no page with number {page}"
         }, status=404)
-
 
     posts_json = []
 
