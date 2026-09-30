@@ -362,14 +362,18 @@ function Profile(props) {
         })
             .then(response => response.json())
             .then(json => {
-                setProfile(json);
+                if (!Object.hasOwn(json, "error")) {
+                    setProfile(json);
+                } else {
+                    alert(json["error"]);
+                }
             });
     }
 
     return (
         <div className="profile">
             {
-                !profile["my_profile"]
+                !profile["my_profile"] && authenticated
                     ?
                         profile["is_following"]
                             ? <button onClick={updateSubscription}>Unsubscribe</button>
