@@ -4,6 +4,12 @@ const View = Object.freeze({
     FOLLOWING: "following"
 })
 
+const PostsMode = Object.freeze({
+    ALL: "all",
+    FOLLOWING: "following",
+    AUTHOR: "author"
+});
+
 function App() {
     const [view, setView] = React.useState(View.POSTS);
     const [profileUserId, setProfileUserId] = React.useState(user_id)
@@ -11,13 +17,21 @@ function App() {
     let display;
     switch (view) {
         case View.POSTS:
-            display = <Posts setView={setView} setProfileUserId={setProfileUserId} showCreateForm={true}/>
+            display = <Posts mode={PostsMode.ALL}
+                             setView={setView}
+                             setProfileUserId={setProfileUserId}
+                             showCreateForm={true}/>
             break;
         case View.PROFILE:
-            display = <Profile userId={profileUserId} setView={setView} setProfileUserId={setProfileUserId}/>
+            display = <Profile userId={profileUserId}
+                               setView={setView}
+                               setProfileUserId={setProfileUserId}/>
             break;
         case View.FOLLOWING:
-            display = <Profile />
+            display = <Posts mode={PostsMode.FOLLOWING}
+                             setView={setView}
+                             setProfileUserId={setProfileUserId}
+                             showCreateForm={false}/>
             break;
     }
 
@@ -84,9 +98,12 @@ function Posts(props) {
     });
 
     async function openPage(page) {
-        const response = Object.hasOwn(props, "author_id")
-            ? await fetch(`posts/${page}?author_id=${props.author_id}`)
-            : await fetch(`posts/${page}`);
+        let path = `posts/${page}?feed=${props.mode}`
+        if (props.mode === "author") {
+            path += `&author_id=${props.author_id}`
+        }
+
+        const response = await fetch(path);
         const json = await response.json();
 
         if (Object.hasOwn(json, "error")) {
@@ -108,7 +125,7 @@ function Posts(props) {
 
     React.useEffect(() => {
         openPage(1)
-    }, [props.author_id]);
+    }, [props.author_id, props.mode]);
 
     const root = document.querySelector('.body');
     const isAuthenticated = root.dataset.authenticated === "true";
@@ -363,7 +380,8 @@ function Profile(props) {
             <span className="username">{profile["username"]}</span>
             <span className="sub-info">Followers: {profile["followers"]}</span>
             <span className="sub-info">Subscriptions: {profile["subscriptions"]}</span>
-            <Posts author_id={props.userId}
+            <Posts mode={PostsMode.AUTHOR}
+                   author_id={props.userId}
                    showCreateForm={false}
                    setView={props.setView}
                    setProfileUserId={props.setProfileUserId}/>
