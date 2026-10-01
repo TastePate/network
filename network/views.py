@@ -1,11 +1,9 @@
 import json
-from enum import Enum
 from functools import wraps
 from json import JSONDecodeError
 
 from django import forms
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator, EmptyPage
 from django.db import IntegrityError
@@ -187,8 +185,7 @@ def posts(request: HttpRequest, page):
 
     match feed_mode:
         case "following":
-            subscriptions_raw = request.user.my_subscriptions.all()
-            subscriptions = list(map(lambda sub: sub.origin, subscriptions_raw))
+            subscriptions = request.user.my_subscriptions.values_list("origin_id", flat=True)
             queryset = queryset.filter(author_id__in=subscriptions)
         case "author":
             author_id = request.GET.get("author_id")
@@ -220,15 +217,9 @@ def posts(request: HttpRequest, page):
 
     for post in page_obj:
         posts_json.append({
-            "id": post.id,
-            "title": post.title,
-            "body": post.body,
-            "author": post.author.username,
-            "author_id": post.author.id,
-            "post_date": post.post_date.isoformat(),
-            "likes": post.likes.count(),
-            "comments": post.comments.count(),
-            "can_edit": request.user.id == post.author_id and request.user.is_authenticated
+            **post.serialize(),
+            "can_edit": request.user.id == post.author_id and request.user.is_authenticated,
+            "author_id": post.author.id
         })
 
     return JsonResponse({
@@ -266,17 +257,11 @@ def edit_post(request: HttpRequest, post_id):
             "error": "You cannot edit this!"
         }, status=403)
 
-    Post.objects.filter(pk=post_id).update(**data)
-    post = Post.objects.filter(pk=post_id).first()
-    return JsonResponse({
-        "id": post.id,
-        "title": post.title,
-        "body": post.body,
-        "author": post.author.username,
-        "post_date": post.post_date.isoformat(),
-        "likes": post.likes.count(),
-        "comments": post.comments.count(),
-    }, status=200)
+    for field, value in data.items():
+        setattr(post, field, value)
+
+    post.save()
+    return JsonResponse(post.serialize(), status=200)
 
 
 def get_json_profile_info(request: HttpRequest, user):
@@ -303,11 +288,13 @@ def subscribe(request: HttpRequest, influencer_id):
             "error": "You can't follow yourself!"
         }, status=400)
 
-    if not Subscription.objects.filter(origin=influencer_id, follower=user.id).exists():
-        sub = Subscription.objects.create(
-            origin_id=influencer_id,
-            follower_id=user.id
-        )
+
+    sub, created = Subscription.objects.get_or_create(
+        origin_id=influencer_id,
+        follower_id=user.id
+    )
+
+    if created:
         return get_json_profile_info(request, User.objects.filter(pk=influencer_id).first())
     else:
         return JsonResponse({
@@ -325,13 +312,13 @@ def unsubscribe(request: HttpRequest, influencer_id):
         }, status=403)
 
     sub_filter = Subscription.objects.filter(origin_id=influencer_id, follower_id=user.id)
-    if not sub_filter.exists():
+    deleted_count, _ = sub_filter.delete()
+    if deleted_count:
+        return get_json_profile_info(request, User.objects.filter(pk=influencer_id).first())
+    else:
         return JsonResponse({
             "error": "You didn't subscribe to this profile"
         }, status=400)
-    else:
-        sub_filter.delete()
-        return get_json_profile_info(request, User.objects.filter(pk=influencer_id).first())
 
 
 @user_exists("user_id")

@@ -1,7 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models import CASCADE
-from django.db.models.constraints import UniqueConstraint
 
 
 class User(AbstractUser):
@@ -16,6 +15,17 @@ class Post(models.Model):
     likes = models.ManyToManyField("User", related_name="user_likes")
     comments = models.ManyToManyField("Comment", related_name="commented_post")
 
+    def serialize(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "body": self.body,
+            "author": self.author.username,
+            "author_id": self.author.id,
+            "post_date": self.post_date.isoformat(),
+            "likes": self.likes.count(),
+            "comments": self.comments.count()
+        }
 
 class Comment(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE)
