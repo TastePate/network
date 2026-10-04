@@ -1,4 +1,65 @@
-.post {
-    display: flex;
-    flex-direction: column;
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background-image: url("background.jpg");
+  background-size: cover;
+  background-position: center;
 }
+body .main {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 15% 1fr;
+  grid-columns-gap: 20px;
+}
+body .main > * {
+  border: 2px solid black;
+}
+body .main .navbar {
+  display: grid;
+  grid-template-rows: 20% 1fr;
+}
+body .main .navbar .logo {
+  align-self: center;
+  justify-self: center;
+  padding: 30px;
+}
+body .main .navbar .logo img {
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
+}
+body .main .navbar .menu-wrapper {
+  display: grid;
+  place-items: center;
+  background-image: url("menu-upper.png");
+  height: 100%;
+  width: 100%;
+  background-size: 170%;
+  background-position: 120%;
+  background-repeat: no-repeat;
+}
+body .main .navbar .menu-wrapper .menu {
+  display: grid;
+  transform: translate(-20px, -20px);
+  align-content: center;
+  justify-content: center;
+  text-align: center;
+  gap: 20px;
+  font-size: 25px;
+}
+body .main .navbar .menu-wrapper .menu .login, body .main .navbar .menu-wrapper .menu .logout {
+  self-align: end;
+}
+body .main .posts-container {
+  overflow-y: scroll;
+  align-items: center;
+  justify-items: center;
+}
+body .main .posts-container .post {
+  display: flex;
+  flex-direction: column;
+}
+
+/*# sourceMappingURL=styles.css.map */

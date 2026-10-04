@@ -45,44 +45,47 @@ function App() {
 
 function NavBar(props) {
     return (
-        <nav className="navbar navbar-expand-lg navbar-light bg-light">
-            <a className="navbar-brand" href="#">Network</a>
-          
-            <div>
-              <ul className="navbar-nav mr-auto">
-                  {authenticated ?
-                    <li className="nav-item">
+        <aside className="navbar">
+            <div className="logo">
+                <a href="#">
+                    <img src={document.querySelector('.body').dataset.logoUrl} alt="Logo"></img>
+                </a>
+            </div>
+            <div className="menu-wrapper">
+                <div className="menu">
+                    {authenticated ?
+                    <div className="menu-item">
                         <a className="nav-link" href="#" onClick={() => {
                             props.setView(View.PROFILE);
                             props.setProfileUserId(user_id)
                         }}><strong>{ username }</strong></a>
-                    </li> : null
-                  }
-                    <li className="nav-item">
+                    </div> : null
+                    }
+                    <div className="menu-item">
                       <a className="nav-link" href="#" onClick={() => props.setView(View.POSTS)}>All Posts</a>
-                    </li>
-                {authenticated ?
-                    <React.Fragment>
-                        <li className="nav-item">
-                            <a className="nav-link" href="#" onClick={() => props.setView(View.FOLLOWING)}>Following</a>
-                        </li>
-                        <li className="nav-item">
-                            <a className="nav-link" href="/logout">Log Out</a>
-                        </li>
-                    </React.Fragment>
-                    :
-                    <React.Fragment>
-                        <li className="nav-item">
-                            <a className="nav-link" href="/login">Log In</a>
-                        </li>
-                        <li className="nav-item">
-                            <a className="nav-link" href="/register">Register</a>
-                        </li>
-                    </React.Fragment>
-                }
-              </ul>
+                    </div>
+                    {authenticated ?
+                        <React.Fragment>
+                            <div className="menu-item">
+                                <a className="nav-link" href="#" onClick={() => props.setView(View.FOLLOWING)}>Following</a>
+                            </div>
+                            <div className="menu-item">
+                                <a className="nav-link" href="/logout">Log Out</a>
+                            </div>
+                        </React.Fragment>
+                        :
+                        <React.Fragment>
+                            <div className="menu-item login">
+                                <a className="nav-link" href="/login">Log In</a>
+                            </div>
+                            <div className="menu-item logout">
+                                <a className="nav-link" href="/register">Register</a>
+                            </div>
+                        </React.Fragment>
+                    }
+                </div>
             </div>
-          </nav>
+          </aside>
     );
 }
 
