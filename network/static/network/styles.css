@@ -53,13 +53,50 @@ body .main .navbar .menu-wrapper .menu .login, body .main .navbar .menu-wrapper 
   self-align: end;
 }
 body .main .posts-container {
+  display: flex;
+  flex-direction: column;
+  padding-top: 30px;
   overflow-y: scroll;
   align-items: center;
   justify-items: center;
 }
-body .main .posts-container .post {
+body .main .posts-container .posts {
   display: flex;
   flex-direction: column;
+  gap: 30px;
+  width: 70%;
+  justify-self: center;
+}
+body .main .posts-container .posts .post-wrapper {
+  display: grid;
+  background-image: url("post-behind.png");
+  background-position: center;
+  background-size: 100%;
+  background-repeat: no-repeat;
+  aspect-ratio: 1743/624;
+  place-items: center;
+  border: 2px black solid;
+}
+body .main .posts-container .posts .post-wrapper .post {
+  display: flex;
+  gap: 10px;
+  height: 55%;
+  width: 75%;
+  flex-direction: column;
+  border: 2px black solid;
+}
+body .main .posts-container .posts .post-wrapper .post .post-header {
+  display: flex;
+  justify-content: space-between;
+}
+body .main .posts-container .posts .post-wrapper .post .post-main {
+  overflow-y: auto;
+}
+body .main .posts-container .posts .post-wrapper .post .post-footer {
+  margin-top: auto;
+}
+body .main .posts-container .posts .post-wrapper .post > * {
+  border: 2px black solid;
 }
 
 /*# sourceMappingURL=styles.css.map */

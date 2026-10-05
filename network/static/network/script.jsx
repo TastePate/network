@@ -170,11 +170,23 @@ function PostsNavigation(props) {
         <div className="posts-nvaigation">
             <button disabled={is_previous_disabled}
                     className="navigate-button previous"
-                    onClick={() => props.page_changer(props.current_page - 1)}>Previous</button>
+                    onClick={() => {
+                        document.querySelector(".posts-container").scrollTo({
+                            top: 0,
+                            behavior: "smooth"
+                        });
+                        props.page_changer(props.current_page - 1)
+                    }}>Previous</button>
             {pages}
             <button disabled={is_next_disabled}
                     className="navigate-button next"
-                    onClick={() => props.page_changer(props.current_page + 1)}>Next</button>
+                    onClick={() => {
+                        document.querySelector(".posts-container").scrollTo({
+                            top: 0,
+                            behavior: "smooth"
+                        });
+                        props.page_changer(props.current_page + 1)
+                    }}>Next</button>
         </div>
     );
 }
@@ -194,20 +206,28 @@ function Post(props) {
             );
         } else if (view === "post") {
             return (
-                <div className="post">
-                    <span>
-                        <a href="#" onClick={() => {
-                            props.setProfileUserId(props.post.author_id);
-                            props.setView(View.PROFILE);
-                        }}>
-                            {props.post.author}
-                        </a>
-                    </span>
-                    <span>{props.post.title}</span>
-                    <span>{props.post.body}</span>
-                    <span>{props.post.post_date}</span>
-                    <Likes post={props.post}/>
-                    {props.post.can_edit ? <a href="#" onClick={() => setView("edit")}>Edit</a> : null}
+                <div className="post-wrapper">
+                    <div className="post">
+                        <div className="post-header">
+                            <span>{props.post.title}</span>
+                            <span>
+                                <a href="#" onClick={() => {
+                                    props.setProfileUserId(props.post.author_id);
+                                    props.setView(View.PROFILE);
+                                }}>
+                                    {props.post.author}
+                                </a>
+                            </span>
+                        </div>
+                        <div className="post-main">
+                            <span>{props.post.body}</span>
+                        </div>
+                        <div className="post-footer">
+                            <span>{props.post.post_date}</span>
+                            <Likes post={props.post}/>
+                            {props.post.can_edit ? <a href="#" onClick={() => setView("edit")}>Edit</a> : null}
+                        </div>
+                    </div>
                 </div>)
         }
     }
